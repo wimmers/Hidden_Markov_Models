@@ -191,6 +191,54 @@ lemma likelihood_backward:
   "likelihood s os = backward s os"
   unfolding likelihood_init emeasure_T_observation_backward ..
 
+
+context
+  fixes \<S> :: "'s set"
+  assumes states_finite: "finite \<S>"
+      and states_wellformed: "\<S> \<noteq> {}"
+      and states_closed: "\<forall> s. \<K> s \<subseteq> \<S>"
+begin
+
+fun forward where
+  "forward s t_end [] = indicator {t_end} s" |
+  "forward s t_end (o # os) =
+    (\<Sum>t \<in> \<S>. ennreal (pmf (\<O> t) o) * ennreal (pmf (\<K> s) t) * forward t t_end os)"
+
+lemma forward_split:
+  "forward s t (os1 @ os2) = (\<Sum> t' \<in> \<S>. forward s t' os1 * forward t' t os2)"
+  if "s \<in> \<S>"
+  using that
+  apply (induction os1 arbitrary: s)
+  subgoal for s
+    apply (simp add: sum_indicator_mult[OF \<open>finite \<S>\<close>])
+    apply (subst sum.cong[where B = "{s}"])
+    by auto
+  subgoal for a os1 s
+    apply simp
+    apply (subst sum_distrib_right)
+    apply (subst sum.commute)
+    apply (simp add: sum_distrib_left algebra_simps)
+    done
+  done
+
+lemma forward_backward:
+  "(\<Sum>t \<in> \<S>. forward s t os) = backward s os" if "s \<in> \<S>"
+  using \<open>s \<in> \<S>\<close>
+  apply (induction os arbitrary: s)
+  subgoal for s
+    by (auto intro: sum_single[where k = s, OF \<open>finite \<S>\<close>])
+  subgoal for a os s
+    apply (simp add: sum.commute sum_distrib_left[symmetric])
+    apply (subst nn_integral_measure_pmf_support[where A = \<S>])
+    using states_finite states_closed by (auto simp: algebra_simps)
+  done
+
+theorem likelihood_forward:
+  "likelihood s os = (\<Sum>t \<in> \<S>. forward s t os)" if \<open>s \<in> \<S>\<close>
+  unfolding likelihood_backward forward_backward[symmetric, OF \<open>s \<in> \<S>\<close>] ..
+
+end (* Finite state set *)
+
 end (* Hidden Markov Model *)
 
 end (* Theory *)
