@@ -1,13 +1,10 @@
 theory Hidden_Markov_Model
-  imports Markov_Models.Discrete_Time_Markov_Chain
+  imports Markov_Models.Discrete_Time_Markov_Chain Auxiliary
 begin
 
-syntax
-  "_MAX"      :: "pttrn \<Rightarrow> 'a set \<Rightarrow> 'b \<Rightarrow> 'b"  ("(3MAX_\<in>_./ _)" [0, 0, 10] 10)
+section \<open>Hidden Markov Models\<close>
 
-translations
-  "MAX x\<in>A. B"   \<rightleftharpoons> "CONST Max ((\<lambda>x. B) ` A)"
-
+subsection \<open>Definitions\<close>
 
 locale HMM =
   fixes \<K> :: "'s \<Rightarrow> 's pmf" and \<O> :: "'s \<Rightarrow> 't pmf" and \<O>\<^sub>s :: "'t set"
@@ -43,6 +40,9 @@ definition
   "decoding s os \<equiv> ARG_MAX
     (\<lambda>as. T' (I s) {\<omega> \<in> space S. \<exists>xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map fst xs = as \<and> map snd xs = os}) _.
     True"
+
+
+subsection \<open>Iteration Rule For Likelihood\<close>
 
 lemma L_Nil:
   "L [] \<omega> = True"
@@ -171,6 +171,9 @@ proof -
   finally show ?thesis .
 qed
 
+
+subsection \<open>Computation of Likelihood\<close>
+
 fun backward where
   "backward s [] = 1" |
   "backward s (o # os) = (\<integral>\<^sup>+ t. ennreal (pmf (\<O> t) o) * backward t os \<partial>measure_pmf (\<K> s))"
@@ -229,7 +232,23 @@ theorem likelihood_forward:
   "likelihood s os = (\<Sum>t \<in> \<S>. forward s t os)" if \<open>s \<in> \<S>\<close>
   unfolding likelihood_backward forward_backward[symmetric, OF \<open>s \<in> \<S>\<close>] ..
 
+
+subsection \<open>Definition of Maximum Probability\<close>
+
 abbreviation (input) "V os as \<omega> \<equiv> (\<exists> \<omega>'. \<omega> = zip as os @- \<omega>')"
+
+definition
+  "max_prob s os =
+  Max {T' (I s) {\<omega> \<in> space S. \<exists>o \<omega>'. \<omega> = (s, o) ## zip as os @- \<omega>'}
+       | as. length as = length os \<and> set as \<subseteq> \<S>}"
+
+fun viterbi_prob where
+  "viterbi_prob s t_end [] = indicator {t_end} s" |
+  "viterbi_prob s t_end (o # os) =
+    (MAX t \<in> \<S>. ennreal (pmf (\<O> t) o * pmf (\<K> s) t) * viterbi_prob t t_end os)"
+
+
+subsection \<open>Iteration Rule For Maximum Probability\<close>
 
 lemma emeasure_T_state_Nil:
   "T (s, o\<^sub>0) {\<omega> \<in> space S. V [] as \<omega>} = 1"
@@ -241,6 +260,10 @@ lemma max_prob_T_state_Nil:
 
 lemma measurable_V[measurable]:
   "Measurable.pred S (\<lambda>\<omega>. V os as \<omega>)"
+  sorry
+
+lemma init_V_measurable[measurable]:
+  "Measurable.pred S (\<lambda>x. \<exists>o \<omega>'. x = (s, o) ## zip as os @- \<omega>')"
   sorry
 
 lemma max_prob_Cons:
@@ -331,14 +354,8 @@ proof -
   finally show ?thesis .
 qed
 
-fun viterbi_prob where
-  "viterbi_prob s t_end [] = indicator {t_end} s" |
-  "viterbi_prob s t_end (o # os) =
-    (MAX t \<in> \<S>. ennreal (pmf (\<O> t) o * pmf (\<K> s) t) * viterbi_prob t t_end os)"
 
-lemma init_V_measurable[measurable]:
-  "Measurable.pred S (\<lambda>x. \<exists>o \<omega>'. x = (s, o) ## zip as os @- \<omega>')"
-  sorry
+subsection \<open>Computation of Maximum Probability\<close>
 
 lemma T_init_V_eq:
   "T (s, o) {\<omega> \<in> space S. V os as \<omega>} = T (s, o') {\<omega> \<in> space S. V os as \<omega>}"
@@ -346,11 +363,6 @@ lemma T_init_V_eq:
   apply (subst (2) emeasure_Collect_T[unfolded space_T], (measurable; fail))
   apply (simp add: K_def)
   done
-
-definition
-  "max_prob s os =
-  Max {T' (I s) {\<omega> \<in> space S. \<exists>o \<omega>'. \<omega> = (s, o) ## zip as os @- \<omega>'}
-       | as. length as = length os \<and> set as \<subseteq> \<S>}"
 
 (* TODO: Duplication with likelihood_init *)
 lemma max_prob_init:
@@ -379,62 +391,10 @@ lemma Max_start:
   "(MAX t\<in>\<S>. (indicator {t} s :: ennreal)) = 1" if "s \<in> \<S>"
   using \<open>finite \<S>\<close> that by (auto simp: indicator_def intro: Max_eqI)
 
-lemma Max_image_commute:
-  "(MAX x \<in> \<S>. MAX y \<in> \<S>. f x y) = (MAX y \<in> \<S>. MAX x \<in> \<S>. f x y)"
-proof (rule Max_eq_if, goal_cases)
-  case 3
-  { fix a assume "a \<in> \<S>"
-    with Max_in[OF finite_imageI[OF \<open>finite \<S>\<close>], of "f a"] have "Max (f a ` \<S>) \<in> f a ` \<S>"
-      by auto
-    then obtain b where "f a b = Max (f a ` \<S>)" "b \<in> \<S>"
-      by auto
-    from \<open>a \<in> \<S>\<close> have "f a b \<le> (MAX a\<in>\<S>. f a b)"
-      by (auto intro: Max_ge finite_imageI[OF \<open>finite \<S>\<close>])
-    with \<open>f a b = _\<close> \<open>b \<in> \<S>\<close> have "\<exists>b\<in>\<S>. Max (f a ` \<S>) \<le> (MAX a\<in>\<S>. f a b)"
-      by auto
-  }
-  then show ?case
-    by auto
-next
-  case 4
-  { fix b assume "b \<in> \<S>"
-    with Max_in[OF finite_imageI[OF \<open>finite \<S>\<close>], of "\<lambda> a. f a b"] have
-      "(MAX a \<in> \<S>. f a b) \<in> (\<lambda>a. f a b) ` \<S>"
-      by auto
-    then obtain a where "f a b = (MAX a \<in> \<S>. f a b)" "a \<in> \<S>"
-      by auto
-    from \<open>b \<in> \<S>\<close> have "f a b \<le> Max (f a ` \<S>)"
-      by (auto intro: Max_ge finite_imageI[OF \<open>finite \<S>\<close>])
-    with \<open>f a b = _\<close> \<open>a \<in> \<S>\<close> have "\<exists>a\<in>\<S>. (MAX a\<in>\<S>. f a b) \<le> Max (f a ` \<S>)"
-      by auto
-  }
-    then show ?case
-      by auto
-  qed (use \<open>finite \<S>\<close> in auto)
-
-lemma Max_image_left_mult:
-  "(MAX x \<in> \<S>. c * f x) = (c :: ennreal) * (MAX x \<in> \<S>. f x)"
-  apply (rule Max_eqI)
-  subgoal
-    using \<open>finite \<S>\<close> by auto
-  subgoal for y
-    using \<open>finite \<S>\<close> by (auto intro: mult_left_mono)
-  subgoal
-    using Max_in[OF finite_imageI[OF \<open>finite \<S>\<close>], of f] \<open>\<S> \<noteq> {}\<close> by auto
-  done
-
-lemma Max_to_image:
-  "Max {f t | t. t \<in> TT} = Max (f ` TT)"
-  by (rule arg_cong[where f = Max]) auto
-
-lemma Max_image_cong:
-  "Max (f ` TT) = Max (g ` RR)" if "TT = RR" "\<And>x. x \<in> RR \<Longrightarrow> f x = g x"
-  by (intro arg_cong[where f = Max] image_cong[OF that])
-
 lemma Max_V_viterbi:
   "(MAX t \<in> \<S>. viterbi_prob s t os) =
    Max {T (s, o) {\<omega> \<in> space S. V os as \<omega>} | as. length as = length os \<and> set as \<subseteq> \<S>}" if "s \<in> \<S>"
-  using that
+  using that \<open>finite \<S>\<close> \<open>\<S> \<noteq> {}\<close>
   by (induction os arbitrary: s o; simp
         add: Max_start max_prob_Cons[simplified] Max_image_commute Max_image_left_mult Max_to_image
         cong: Max_image_cong
