@@ -59,14 +59,59 @@ lemma Max_image_left_mult:
     using Max_in[OF finite_imageI[OF \<open>finite S\<close>], of f] \<open>S \<noteq> {}\<close> by auto
   done
 
+end (* Finite set *)
+
 lemma Max_to_image:
-  "Max {f t | t. t \<in> TT} = Max (f ` TT)"
+  "Max {f t | t. t \<in> S} = Max (f ` S)"
+  by (rule arg_cong[where f = Max]) auto
+
+lemma Max_to_image2:
+  "Max {f t | t. P t} = Max (f ` {t. P t})"
   by (rule arg_cong[where f = Max]) auto
 
 lemma Max_image_cong:
-  "Max (f ` TT) = Max (g ` RR)" if "TT = RR" "\<And>x. x \<in> RR \<Longrightarrow> f x = g x"
+  "Max (f ` S) = Max (g ` T)" if "S = T" "\<And>x. x \<in> T \<Longrightarrow> f x = g x"
   by (intro arg_cong[where f = Max] image_cong[OF that])
 
-end (* Finite set *)
+lemma Max_image_cong_simp:
+  "Max (f ` S) = Max (g ` T)" if "S = T" "\<And>x. x \<in> T =simp=> f x = g x"
+  using Max_image_cong[OF that[unfolded simp_implies_def]] .
+
+thm Max_eq_if
+
+lemma Max_eq_image_if:
+  assumes
+    "finite S" "finite T" "\<forall>x \<in> S. \<exists>y \<in> T. f x \<le> g y" "\<forall>x \<in> T. \<exists>y \<in> S. g x \<le> f y"
+  shows "Max (f ` S) = Max (g ` T)"
+  using assms by (auto intro: Max_eq_if)
+
+theorem Max_in_image:
+  assumes "finite A" and "A \<noteq> {}"
+  obtains x where "x \<in> A" and "Max (f ` A) = f x"
+proof -
+  from Max_in[of "f ` A"] assms have "Max (f ` A) \<in> f ` A"
+    by auto
+  then show ?thesis
+    by (auto intro: that)
+qed
+
+lemma Max_ge_image:
+  "Max (f ` S) \<ge> f x" if "finite S" "x \<in> S"
+  using that by (auto intro: Max_ge)
+
+lemma Max_image_pair:
+  assumes "finite S" "finite T" "T \<noteq> {}"
+  shows "(MAX s \<in> S. MAX t \<in> T. f s t) = (MAX (s, t) \<in> S \<times> T. f s t)"
+proof ((rule Max_eq_image_if; clarsimp?), goal_cases)
+  case (3 x)
+  from \<open>finite T\<close> \<open>T \<noteq> {}\<close> obtain y where "y \<in> T" and "Max (f x ` T) = f x y"
+    by (rule Max_in_image)
+  with \<open>x \<in> S\<close> show ?case
+    by auto
+next
+  case (4 a b)
+  with \<open>finite T\<close> show ?case
+    by force
+qed (use assms in auto)
 
 end (* Theory *)

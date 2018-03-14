@@ -85,42 +85,6 @@ proof -
     done
 qed
 
-lemma
-  "T (s, o\<^sub>0) {\<omega> \<in> space S. L (o\<^sub>1 # os) \<omega>} =
-   (\<integral>\<^sup>+ t.
-     ennreal (pmf (\<O> t) o\<^sub>1) * T (t, o\<^sub>1) {\<omega> \<in> space S. \<exists> xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os}
-   \<partial>measure_pmf (\<K> s))"
-  apply (subst emeasure_Collect_T[unfolded space_T])
-  apply (measurable; fail)
-   apply (simp add: K_def)
-   apply (rule nn_integral_cong_AE)
-   apply (rule AE_I2)
-  subgoal for s'
-    apply (subst nn_integral_measure_pmf)
-    apply (subst nn_integral_cong_AE
-        [where v = "\<lambda> o\<^sub>2. if o\<^sub>2 = o\<^sub>1 then ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. \<exists> xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os} else 0"]
-          )
-     apply (rule AE_I2)
-     apply (auto split: if_split)
-      apply (simp add: K_def)
-      apply (rule arg_cong2[where f = times, OF HOL.refl])
-      apply (rule arg_cong2[where f = emeasure, OF HOL.refl])
-    subgoal
-      apply auto
-       apply force
-      by (metis list.simps(9) shift.simps(2) snd_conv)
-     apply (subst (asm) arg_cong2[where f = emeasure and d = "{}", OF HOL.refl])
-      apply (auto; fail)
-     apply (simp; fail)
-apply (subst nn_integral_cong_AE
-        [where v = "\<lambda> o\<^sub>2. ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. \<exists> xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os} * indicator {o\<^sub>1} o\<^sub>2"]
-          )
-     apply (rule AE_I2)
-     apply (auto; fail)
-    apply (simp add: K_def)
-    done
-  done
-
 lemma emeasure_T_observation_Cons:
   "T (s, o\<^sub>0) {\<omega> \<in> space S. L (o\<^sub>1 # os) \<omega>} =
    (\<integral>\<^sup>+ t. ennreal (pmf (\<O> t) o\<^sub>1) * T (t, o\<^sub>1) {\<omega> \<in> space S. L os \<omega>} \<partial>(\<K> s))" (is "?l = ?r")
@@ -269,40 +233,29 @@ lemma init_V_measurable[measurable]:
 lemma max_prob_Cons:
   "Max {T (s, o\<^sub>1) {\<omega> \<in> space S. V (o # os) as \<omega>} | as. length as = length (o # os) \<and> set as \<subseteq> \<S>} =
   (
-    Max {ennreal (pmf (\<O> t) o * pmf (\<K> s) t) *
-      Max {T (t, o) {\<omega> \<in> space S. V os as \<omega>} | as. length as = length os \<and> set as \<subseteq> \<S>} | t. t \<in> \<S>}
+    MAX t \<in> \<S>. ennreal (pmf (\<O> t) o * pmf (\<K> s) t) *
+      (MAX as \<in> {as. length as = length os \<and> set as \<subseteq> \<S>}. T (t, o) {\<omega> \<in> space S. V os as \<omega>})
   )" (is "?l = ?r")
 proof -
-  let ?P = "\<lambda>as os. length as = length os \<and> set as \<subseteq> \<S>"
-  have P_finite: "finite {as. ?P as os}" for os :: "'t list"
+  let ?S = "\<lambda> os. {as. length as = length os \<and> set as \<subseteq> \<S>}"
+  have S_finite: "finite (?S os)" for os :: "'t list"
     using finite_lists_length_eq[OF \<open>finite \<S>\<close>] by (rule finite_subset[rotated]) auto
-  have P_nonempty: "{as. ?P as os} \<noteq> {}" for os :: "'t list"
+  have S_nonempty: "?S os \<noteq> {}" for os :: "'t list"
   proof -
     let ?a = "SOME a. a \<in> \<S>" let ?as = "replicate (length os) ?a"
     from \<open>\<S> \<noteq> {}\<close> have "?a \<in> \<S>"
       by (auto intro: someI_ex)
-    then have "?as \<in> {as. ?P as os}"
+    then have "?as \<in> ?S os"
       by auto
     then show ?thesis
       by force
   qed
   let ?f = "\<lambda>t as os. T t {\<omega> \<in> space S. V os as (t ## \<omega>)}"
   let ?g = "\<lambda>t as os. T t {\<omega> \<in> space S. V os as \<omega>}"
-  have *: "?f t as (o # os) = ?g t (tl as) os * indicator {(hd as, o)} t" if "as \<noteq> []" for t as
+  have *: "?f t as (o # os) = ?g t (tl as) os * indicator {(hd as, o)} t"
+    if "length as = Suc n" for t as n
     unfolding indicator_def using that by (cases as) auto
-  have "{\<integral>\<^sup>+ t. ?f t as (o # os) \<partial>K (s, o\<^sub>1) |as. ?P as (o # os)}
-      = {\<integral>\<^sup>+ t. ?g t (tl as) os * indicator {(hd as, o)} t \<partial>K (s, o\<^sub>1) |as. ?P as (o # os)}"
-    (* TODO: better congruence rules than Collect_cong? *)
-    apply safe
-     apply (subst *; auto; fail)
-    subgoal for _ as
-      by (rule exI[where x = as]) (subst *; auto)
-    done
-  then have *: "{\<integral>\<^sup>+ t. ?f t as (o # os) \<partial>K (s, o\<^sub>1) |as. ?P as (o # os)} =
-      (\<lambda>as. \<integral>\<^sup>+ t. ?g t (tl as) os * indicator {(hd as, o)} t \<partial>K (s, o\<^sub>1)) ` {as. ?P as (o # os)}"
-    by auto
-  have **: "K (s, o\<^sub>1) {(t, o)} = pmf (\<O> t) o * pmf (\<K> s) t"
-    for t
+  have **: "K (s, o\<^sub>1) {(t, o)} = pmf (\<O> t) o * pmf (\<K> s) t" for t
     unfolding K_def
     apply (simp add: vimage_def)
     apply (subst arg_cong2[where
@@ -311,46 +264,30 @@ proof -
     subgoal
       by (auto simp: indicator_def)
     by (simp add: emeasure_pmf_single ennreal_mult')
-  have "?l = Max {\<integral>\<^sup>+ t. ?f t as (o # os) \<partial>K (s, o\<^sub>1) | as. ?P as (o # os)}"
-    by (subst emeasure_Collect_T[unfolded space_T]; rule measurable_V HOL.refl)
-  also have "\<dots> =
-    Max ((\<lambda>as. \<integral>\<^sup>+ t. ?g t (tl as) os * indicator {(hd as, o)} t \<partial>K (s, o\<^sub>1)) ` {as. ?P as (o # os)})"
-    by (subst *) (simp add: **)
-  also have "\<dots> = ?r"
-  proof ((rule Max_eq_if; clarsimp?), goal_cases)
+  have "?l = (MAX as \<in> ?S (o # os). \<integral>\<^sup>+ t. ?f t as (o # os) \<partial>K (s, o\<^sub>1))"
+    by (subst Max_to_image2; subst emeasure_Collect_T[unfolded space_T]; rule measurable_V HOL.refl)
+  also have "\<dots> = (MAX as \<in> ?S (o # os). \<integral>\<^sup>+ t. ?g t (tl as) os * indicator {(hd as,o)} t \<partial>K (s,o\<^sub>1))"
+    by (simp cong: Max_image_cong_simp add: *)
+  also have "\<dots> = (MAX(t, as)\<in> \<S> \<times> ?S os. ennreal (pmf (\<O> t) o * pmf (\<K> s) t) * ?g (t, o) as os)"
+  proof ((rule Max_eq_image_if; clarsimp?), goal_cases)
     case 1
-    then show ?case
-      using P_finite[of "o # os"] by auto
+    from S_finite[of "o # os"] show ?case
+      by simp
   next
     case 2
+    from \<open>finite \<S>\<close> show ?case
+      by (blast intro: S_finite)
+  next
+    case (3 as)
     then show ?case
-      using \<open>finite \<S>\<close> by auto
+      by - (rule bexI[where x = "hd as"]; cases as; auto simp: algebra_simps **)
   next
-    case prems: (3 as)
-    let ?p = "ennreal (pmf (\<O> (hd as)) o * pmf (\<K> s) (hd as))"
-    let ?w = "Max {T (hd as, o) {\<omega> \<in> space S. \<exists>\<omega>'. \<omega> = zip bs os @- \<omega>'} |bs. ?P bs os}"
-    have "?w * ?p = ?p * ?w"
-      by (simp add: algebra_simps)
-    moreover have "?g (hd as, o) (tl as) os * ?p \<le> ?w * ?p"
-      apply (rule mult_right_mono)
-       apply (rule Max_ge)
-      subgoal
-        using [[simproc add: finite_Collect]] by (auto intro: finite_subset[OF _ P_finite])
-      using prems by (cases as; auto)+
-    moreover from prems have "hd as \<in> \<S>"
-      by (metis list.set_sel(1) list.size(3) nat.distinct(1) subset_eq)
-    ultimately show ?case
-      by (auto simp add: **)
-  next
-    case prems: (4 t)
-    have "{?g (t, o) as os |as. ?P as os} = (\<lambda>as. ?g (t, o) as os) ` {as. ?P as os}"
-      by auto
-    with Max_in[OF finite_imageI, OF P_finite, of "\<lambda> as. ?g (t, o) as os" os] obtain as where
-      "Max {?g (t, o) as os |as. ?P as os} = ?g (t, o) as os" "?P as os"
-      using P_nonempty by atomize_elim auto
-    with prems show ?case
-      by simp (rule exI[where x= "t # as"], auto simp: algebra_simps **)
+    case (4 x as)
+    then show ?case
+      by - (rule exI[where x = "x # as"], simp add: algebra_simps **)
   qed
+  also have "\<dots> = ?r"
+    by (subst Max_image_left_mult[symmetric], fact+) (rule sym, rule Max_image_pair, fact+)
   finally show ?thesis .
 qed
 
@@ -396,7 +333,7 @@ lemma Max_V_viterbi:
    Max {T (s, o) {\<omega> \<in> space S. V os as \<omega>} | as. length as = length os \<and> set as \<subseteq> \<S>}" if "s \<in> \<S>"
   using that \<open>finite \<S>\<close> \<open>\<S> \<noteq> {}\<close>
   by (induction os arbitrary: s o; simp
-        add: Max_start max_prob_Cons[simplified] Max_image_commute Max_image_left_mult Max_to_image
+        add: Max_start max_prob_Cons[simplified] Max_image_commute Max_image_left_mult Max_to_image2
         cong: Max_image_cong
       )
 
