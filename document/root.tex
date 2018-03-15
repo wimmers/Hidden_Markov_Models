@@ -1,0 +1,59 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{isabelle,isabellesym}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[english]{babel}
+\usepackage{stmaryrd}
+\usepackage{eufrak}
+\usepackage{wasysym}
+\usepackage{tikz}
+
+% this should be the last package used
+\usepackage{pdfsetup}
+
+% urls in roman style, theory text in math-similar italics
+\urlstyle{rm}
+\isabellestyle{it}
+
+
+\begin{document}
+
+
+\title{Hidden Markov Models}
+\author{Simon Wimmer}
+\maketitle
+
+\begin{abstract}
+We present a formalization of hidden Markov models \cite{Markov13}.
+based on Johannes Hözl's formalization of discrete time Markov chains \cite{hoelzl2017mdp}.
+We provide the basic definitions and prove correctness of two main algorithms for
+Hidden Markov Models: the forward algorithm for computing the likelihood of an observed sequence
+and the Viterbi algorithm for decoding the most probable hidden state sequence.
+Hidden Markov Models have various applications in natural language processing.
+For a introduction see Jurafsky and Martin \cite{Jurafsky}.
+
+Based on Markov Models \cite{hoelzl2017mdp} and Timed Automata.
+
+\end{abstract}
+
+\tableofcontents
+
+\pagebreak
+
+% sane default for proof documents
+\parindent 0pt\parskip 0.5ex
+
+% generated text of all theories
+\input{session}
+
+% optional bibliography
+\bibliographystyle{abbrv}
+\bibliography{root}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
