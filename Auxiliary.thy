@@ -77,8 +77,6 @@ lemma Max_image_cong_simp:
   "Max (f ` S) = Max (g ` T)" if "S = T" "\<And>x. x \<in> T =simp=> f x = g x"
   using Max_image_cong[OF that[unfolded simp_implies_def]] .
 
-thm Max_eq_if
-
 lemma Max_eq_image_if:
   assumes
     "finite S" "finite T" "\<forall>x \<in> S. \<exists>y \<in> T. f x \<le> g y" "\<forall>x \<in> T. \<exists>y \<in> S. g x \<le> f y"
@@ -113,5 +111,43 @@ next
   with \<open>finite T\<close> show ?case
     by force
 qed (use assms in auto)
+
+
+fun argmax where
+  "argmax f (x # xs) =
+    List.fold (\<lambda> a (b, v). let w = f a in if w > v then (a, w) else (b, v)) xs (x, f x)"
+
+lemma list_cases:
+  assumes "xs = [] \<Longrightarrow> P []"
+      and "\<And> x. xs = [x] \<Longrightarrow> P [x]"
+      and "\<And> x y ys. xs = (x # y # ys) \<Longrightarrow> P (x # y # ys)"
+    shows "P xs"
+  apply (cases xs)
+   apply (simp add: assms)
+  subgoal for y ys
+    by (cases ys; simp add: assms)
+  done
+
+lemma argmax:
+  assumes "xs \<noteq> []"
+  shows
+    "fst (argmax f xs) \<in> set xs" (is "?A")
+    "f (fst (argmax f xs)) = snd (argmax f xs)" (is "?B")
+    "snd (argmax f xs) = (MAX x \<in> set xs. f x)" (is "?C")
+proof -
+  let ?f = "\<lambda> a (b, v). let w = f a in if w > v then (a, w) else (b, v)"
+  have "fst (List.fold ?f xs (x, f x)) \<in> {x} \<union> set xs" if "xs \<noteq> []" for x xs
+    using that by (induction xs arbitrary: x rule: list_nonempty_induct)(auto simp: Let_def max_def)
+  with \<open>xs \<noteq> []\<close> show ?A
+    by (cases xs rule: list_cases; fastforce)
+  have "f (fst (List.fold ?f xs (x, f x))) = snd (List.fold ?f xs (x, f x))" if "xs \<noteq> []" for x xs
+    using that by (induction xs arbitrary: x rule: list_nonempty_induct)(auto simp: Let_def max_def)
+  with \<open>xs \<noteq> []\<close> show ?B
+    by (cases xs rule: list_cases; fastforce)
+  have "snd (List.fold ?f xs (x, f x)) = (MAX x \<in> {x} \<union> set xs. f x)"if "xs \<noteq> []" for x xs
+    using that by (induction xs arbitrary: x rule: list_nonempty_induct)(auto simp: Let_def max_def)
+  with \<open>xs \<noteq> []\<close> show ?C
+    by (cases xs rule: list_cases; fastforce)
+qed
 
 end (* Theory *)
