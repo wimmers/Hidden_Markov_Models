@@ -47,13 +47,38 @@ lemma emeasure_T_observation_Nil:
   "T (s, o\<^sub>0) {\<omega> \<in> space S. L [] \<omega>} = 1"
   by simp
 
+lemma L_Cons:
+  "L (o # os) \<omega> \<longleftrightarrow> snd (shd \<omega>) = o \<and> L os (stl \<omega>)"
+  apply (cases \<omega>; cases "shd \<omega>")
+  apply auto
+   apply force
+  subgoal for x xs \<omega>'
+    apply (rule exI[where x = "(x, o) # xs"])
+    apply force
+    done
+  done
+
 lemma L_measurable[measurable]:
   "Measurable.pred S (L os)"
-  sorry
+  apply (induction os)
+   apply (simp; fail)
+  subgoal premises that for o os
+    by(subst L_Cons)
+      (intro Measurable.pred_intros_logic
+        measurable_compose[OF measurable_shd] measurable_compose[OF measurable_stl that];
+        measurable)
+  done
 
 lemma init_measurable[measurable]:
   "Measurable.pred S (\<lambda>x. \<exists>o\<^sub>0 xs \<omega>'. x = (s, o\<^sub>0) ## xs @- \<omega>' \<and> map snd xs = os)"
-  sorry
+  (is "Measurable.pred S ?f")
+proof -
+  have *: "?f \<omega> \<longleftrightarrow> fst (shd \<omega>) = s \<and> L os (stl \<omega>)" for \<omega>
+    by (cases \<omega>) auto
+  show ?thesis
+    by (subst *)
+       (intro Measurable.pred_intros_logic measurable_compose[OF measurable_shd]; measurable)
+qed
 
 lemma T_init_observation_eq:
   "T (s, o) {\<omega> \<in> space S. L os \<omega>} = T (s, o') {\<omega> \<in> space S. L os \<omega>}"
@@ -219,13 +244,29 @@ lemma max_prob_T_state_Nil:
   "Max {T (s, o) {\<omega> \<in> space S. V [] as \<omega>} | as. length as = length [] \<and> set as \<subseteq> \<S>} = 1"
   by (simp add: emeasure_T_state_Nil)
 
+lemma V_Cons: "V (o # os) (a # as) \<omega> \<longleftrightarrow> fst (shd \<omega>) = a \<and> snd (shd \<omega>) = o \<and> V os as (stl \<omega>)"
+  by (cases \<omega>) auto
+
 lemma measurable_V[measurable]:
   "Measurable.pred S (\<lambda>\<omega>. V os as \<omega>)"
-  sorry
+  apply (induction os as rule: list_induct2')
+     prefer 4
+  subgoal premises prems for x xs y ys
+    by (subst V_Cons)
+       (intro Measurable.pred_intros_logic
+          measurable_compose[OF measurable_shd] measurable_compose[OF measurable_stl prems];
+        measurable)
+  by simp+
 
 lemma init_V_measurable[measurable]:
-  "Measurable.pred S (\<lambda>x. \<exists>o \<omega>'. x = (s, o) ## zip as os @- \<omega>')"
-  sorry
+  "Measurable.pred S (\<lambda>x. \<exists>o \<omega>'. x = (s, o) ## zip as os @- \<omega>')" (is "Measurable.pred S ?f")
+proof -
+  have *: "?f \<omega> \<longleftrightarrow> fst (shd \<omega>) = s \<and> V os as (stl \<omega>)" for \<omega>
+    by (cases \<omega>) auto
+  show ?thesis
+    by (subst *)
+       (intro Measurable.pred_intros_logic measurable_compose[OF measurable_shd]; measurable)
+qed
 
 lemma max_prob_Cons':
   "Max {T (s, o\<^sub>1) {\<omega> \<in> space S. V (o # os) as \<omega>} | as. length as = length (o # os) \<and> set as \<subseteq> \<S>} =
