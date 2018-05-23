@@ -1,6 +1,6 @@
 theory Simple_List_Memory
   imports Main
-    "../Dynamic_Programming_Hg/state_monad/State_Main"
+    "../Dynamic_Programming_Hg/state_monad/Memory"
     "HOL-Library.AList"
 begin
 
