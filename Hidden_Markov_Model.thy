@@ -284,14 +284,14 @@ lemma V_Cons: "V (o # os) (a # as) \<omega> \<longleftrightarrow> fst (shd \<ome
 
 lemma measurable_V[measurable]:
   "Measurable.pred S (\<lambda>\<omega>. V os as \<omega>)"
-  apply (induction os as rule: list_induct2')
-     prefer 4
-  subgoal premises prems for x xs y ys
+proof (induction os as rule: list_induct2')
+  case (4 x xs y ys)
+  then show ?case
     by (subst V_Cons)
        (intro Measurable.pred_intros_logic
-          measurable_compose[OF measurable_shd] measurable_compose[OF measurable_stl prems];
+          measurable_compose[OF measurable_shd] measurable_compose[OF measurable_stl];
         measurable)
-  by simp+
+qed simp+
 
 lemma init_V_measurable[measurable]:
   "Measurable.pred S (\<lambda>x. \<exists>o \<omega>'. x = (s, o) ## zip as os @- \<omega>')" (is "Measurable.pred S ?f")
