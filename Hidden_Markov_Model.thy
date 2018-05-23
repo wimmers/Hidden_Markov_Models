@@ -658,6 +658,50 @@ lemma viterbi_code [code]:
 
 end (* Hidden Markov Model 3 *)
 
+lemma pmf_of_alist_support_aux_1:
+  assumes "\<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
+  shows "(0 :: real) \<le> (case map_of \<mu> x of None \<Rightarrow> 0 | Some p \<Rightarrow> p)"
+  using assms by (auto split: option.split dest: map_of_SomeD)
+
+lemma pmf_of_alist_support_aux_2:
+  assumes "\<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
+    and "sum_list (map snd \<mu>) = 1"
+    and "distinct (map fst \<mu>)"
+  shows "\<integral>\<^sup>+ x. ennreal (case map_of \<mu> x of None \<Rightarrow> 0 | Some p \<Rightarrow> p) \<partial>count_space UNIV = 1"
+  using assms
+  apply (subst nn_integral_count_space)
+  subgoal
+    by (rule finite_subset[where B = "fst ` set \<mu>"];
+        force split: option.split_asm simp: image_iff dest: map_of_SomeD)
+  apply (subst sum.mono_neutral_left[where T = "fst ` set \<mu>"])
+     apply blast
+  subgoal
+    by (smt ennreal_less_zero_iff map_of_eq_None_iff mem_Collect_eq option.case(1) subsetI)
+  subgoal
+    by auto
+  subgoal premises prems
+  proof -
+    have "(\<Sum>x = 0..<length \<mu>. snd (\<mu> ! x))
+      = sum (\<lambda> x. case map_of \<mu> x of None \<Rightarrow> 0 | Some v \<Rightarrow> v) (fst ` set \<mu>)"
+      apply (rule sym)
+      apply (rule sum.reindex_cong[where l = "\<lambda> i. fst (\<mu> ! i)"])
+        apply (auto split: option.split)
+      subgoal
+        by (smt atLeastLessThan_iff distinct_conv_nth inj_onI length_map nth_map prems(3))
+      subgoal
+        by (metis (no_types, lifting) atLeast0LessThan fst_conv in_set_conv_nth lessThan_iff rev_image_eqI)
+      subgoal
+        by (simp add: map_of_eq_None_iff)
+      subgoal
+        by (metis fst_conv map_of_eq_Some_iff nth_mem option.inject prems(3) prod_eqI snd_conv)
+      done
+    with prems(2) show ?thesis
+      by (smt pmf_of_alist_support_aux_1[OF assms(1)] atLeastLessThan_iff ennreal_1
+          length_map nth_map sum.cong sum_ennreal sum_list_sum_nth
+          )
+  qed
+  done
+
 lemma pmf_of_alist_support:
   assumes "\<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
     and "sum_list (map snd \<mu>) = 1"
@@ -666,41 +710,9 @@ lemma pmf_of_alist_support:
   unfolding pmf_of_alist_def
   apply (subst set_embed_pmf)
   subgoal for x
-    using assms(1)
-    by (auto split: option.split dest: map_of_SomeD)
+    using assms(1) by (auto split: option.split dest: map_of_SomeD)
   subgoal
-    using assms
-    apply (subst nn_integral_count_space)
-    subgoal
-      by (rule finite_subset[where B = "fst ` set \<mu>"];
-          force split: option.split_asm simp: image_iff dest: map_of_SomeD)
-    apply (subst sum.mono_neutral_left[where T = "fst ` set \<mu>"])
-       apply blast
-    subgoal
-      by (smt ennreal_less_zero_iff map_of_eq_None_iff mem_Collect_eq option.case(1) subsetI)
-    subgoal
-      by auto
-
-    subgoal premises prems
-    proof -
-      have "(\<Sum>x = 0..<length \<mu>. snd (\<mu> ! x))
-      = sum (\<lambda> x. case map_of \<mu> x of None \<Rightarrow> 0 | Some v \<Rightarrow> v) (fst ` set \<mu>)"
-        apply (rule sym)
-        apply (rule sum.reindex_cong[where l = "\<lambda> i. fst (\<mu> ! i)"])
-          apply (auto split: option.split)
-        subgoal
-          by (smt atLeastLessThan_iff distinct_conv_nth inj_onI length_map nth_map prems(3))
-        subgoal
-          by (metis (no_types, lifting) atLeast0LessThan fst_conv in_set_conv_nth lessThan_iff rev_image_eqI)
-        subgoal
-          by (simp add: map_of_eq_None_iff)
-        subgoal
-          by (metis fst_conv map_of_eq_Some_iff nth_mem option.inject prems(3) prod_eqI snd_conv)
-        done
-      with prems(2) show ?thesis
-        by (smt \<open>\<And>x. 0 \<le> (case map_of \<mu> x of None \<Rightarrow> 0 | Some p \<Rightarrow> p)\<close> atLeastLessThan_iff ennreal_1 length_map nth_map sum.cong sum_ennreal sum_list_sum_nth)
-    qed
-    done
+    using pmf_of_alist_support_aux_2[OF assms] .
   apply (force split: option.split_asm simp: image_iff dest: map_of_SomeD)+
   done
 
@@ -731,23 +743,21 @@ definition [code]:
 
 lemma map_of_NoneD:
   "x \<notin> fst ` set M" if "map_of M x = None"
-  using that
-  apply auto
-  sorry
+  using that by (auto dest: weak_map_of_SomeI)
 
 lemma pmf_of_alist_aux:
   assumes "(s, \<mu>) \<in> set K"
   shows
-  "pmf (pmf_of_alist \<mu>) t = (case map_of \<mu> t of
-    None \<Rightarrow> 0
-  | Some p \<Rightarrow> p)"
-  using assms
-  unfolding pmf_of_alist_def
-  apply (auto split: option.split)
-  sorry
+    "pmf (pmf_of_alist \<mu>) t = (case map_of \<mu> t of
+      None \<Rightarrow> 0
+    | Some p \<Rightarrow> p)"
+  using assms is_pmf unfolding pmf_of_alist_def
+  by (intro pmf_embed_pmf pmf_of_alist_support_aux_2) 
+     (auto 4 3 split: option.split dest: map_of_SomeD)
 
 lemma unique: "\<mu> = \<mu>'" if "(s, \<mu>) \<in> set K" "(s, \<mu>') \<in> set K"
-  using that is_unique sorry
+  using that is_unique
+  by (smt Pair_inject distinct_conv_nth fst_conv in_set_conv_nth length_map nth_map)
 
 lemma K'_code [code_post]:
   "pmf (K' s) t = (case K1 s of
@@ -828,7 +838,7 @@ lemmas O_code2[code] = O.K1_def
 sublocale HMM_interp: HMM3 \<O>' "set \<K>\<^sub>s" \<K>\<^sub>s \<K>' "set \<O>\<^sub>s"
   using O.Closed_Kernel_axioms K.Closed_Kernel_axioms
   by (intro_locales, intro HMM3_axioms.intro HOL.refl)
-thm O.K'_code
+
 end (* Concrete HMM *)
 
 subsection \<open>The Ice Cream Example\<close>
