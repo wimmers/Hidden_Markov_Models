@@ -1,10 +1,10 @@
+section \<open>Hidden Markov Models\<close>
+
 theory Hidden_Markov_Model
   imports
     Markov_Models.Discrete_Time_Markov_Chain Auxiliary
     "HOL-Library.IArray"
 begin
-
-section \<open>Hidden Markov Models\<close>
 
 subsection \<open>Definitions\<close>
 

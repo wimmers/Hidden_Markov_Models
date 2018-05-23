@@ -57,16 +57,13 @@ definition
 
 end (* HMM3 Defs *)
 
-context HMM4
-begin
-
 text \<open>Correctness of the alternative definition.\<close>
 
-lemma forward_ix_drop_one:
+lemma (in HMM3) forward_ix_drop_one:
   "forward_ix (o # os) s t (n + 1) = forward_ix os s t n"
   by (induction "length os - n" arbitrary: s n; simp add: forward_ix_def)
 
-lemma forward_ix_forward:
+lemma (in HMM4) forward_ix_forward:
   "forward_ix os s t 0 = forward s t os"
   unfolding forward_ix_def
 proof (induction os arbitrary: s)
@@ -83,14 +80,12 @@ next
        )
 qed
 
-lemma forward_code [code]:
+lemma (in HMM4) forward_code [code]:
   "forward s t os = fst (run_state (forward_ix\<^sub>m' (IArray os) s t 0) [])"
   by (simp only:
       forward_ix_def forward_ix\<^sub>m.memoized_correct forward_ix_forward[symmetric]
       states_distinct
      )
-
-end (* Hidden Markov Model 4 *)
 
 
 subsection \<open>The Viterbi Algorithm\<close>
@@ -296,16 +291,19 @@ locale Concrete_HMM_defs =
     and \<O> :: "('s \<times> ('t \<times> real) list) list"
     and \<O>\<^sub>s :: "'t list"
     and \<K>\<^sub>s :: "'s list"
+begin
 
-definition (in Concrete_HMM_defs)
+definition
   "\<K>' s \<equiv> case map_of (map (\<lambda> (s, \<mu>). (s, PMF_Impl.pmf_of_alist \<mu>)) \<K>) s of
     None \<Rightarrow> return_pmf (hd \<K>\<^sub>s) |
     Some s \<Rightarrow> s"
 
-definition (in Concrete_HMM_defs)
+definition
   "\<O>' s \<equiv> case map_of (map (\<lambda> (s, \<mu>). (s, PMF_Impl.pmf_of_alist \<mu>)) \<O>) s of
     None \<Rightarrow> return_pmf (hd \<O>\<^sub>s) |
     Some s \<Rightarrow> s"
+
+end
 
 locale Concrete_HMM = Concrete_HMM_defs +
   assumes observations_wellformed': "\<O>\<^sub>s \<noteq> []"
