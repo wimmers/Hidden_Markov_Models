@@ -619,7 +619,6 @@ context
 begin
 thm viterbi_ix\<^sub>m'.simps viterbi_ix\<^sub>m_def
 thm viterbi_ix\<^sub>m.memoized_correct
-lemmas [code] = viterbi_ix\<^sub>m'.simps
 end
 
 end (* Fixed IArray *)
@@ -651,9 +650,11 @@ next
        (simp add: Cons.IH del: viterbi_ix_inner.simps viterbi.simps)
 qed
 
+(*
 lemma viterbi_code [code]:
   "viterbi s t os = fst (run_state (viterbi_ix\<^sub>m' (IArray os) s t 0) Mapping.empty)"
   by (simp only: viterbi_ix_def viterbi_ix\<^sub>m.memoized_correct viterbi_ix_viterbi[symmetric])
+*)
 
 end (* Hidden Markov Model 3 *)
 
@@ -712,6 +713,8 @@ locale Closed_Kernel_From =
         "\<forall> (_, \<mu>) \<in> set K. \<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
         "\<forall> (_, \<mu>) \<in> set K. distinct (map fst \<mu>)"
         "\<forall> (s, \<mu>) \<in> set K. sum_list (map snd \<mu>) = 1"
+      and is_unique:
+        "distinct (map fst K)"
 begin
 
 definition
@@ -722,6 +725,42 @@ definition
 sublocale Closed_Kernel K' "set S"
   using wellformed closed is_pmf pmf_of_alist_support
   unfolding K'_def by - (standard; fastforce split: option.split_asm dest: map_of_SomeD)
+
+definition [code]:
+  "K1 = map_of (map (\<lambda> (s, \<mu>). (s, map_of \<mu>)) K)"
+
+lemma map_of_NoneD:
+  "x \<notin> fst ` set M" if "map_of M x = None"
+  using that
+  apply auto
+  sorry
+
+lemma pmf_of_alist_aux:
+  assumes "(s, \<mu>) \<in> set K"
+  shows
+  "pmf (pmf_of_alist \<mu>) t = (case map_of \<mu> t of
+    None \<Rightarrow> 0
+  | Some p \<Rightarrow> p)"
+  using assms
+  unfolding pmf_of_alist_def
+  apply (auto split: option.split)
+  sorry
+
+lemma unique: "\<mu> = \<mu>'" if "(s, \<mu>) \<in> set K" "(s, \<mu>') \<in> set K"
+  using that is_unique sorry
+
+lemma K'_code [code_post]:
+  "pmf (K' s) t = (case K1 s of
+      None \<Rightarrow> (if t = hd S then 1 else 0)
+    | Some \<mu> \<Rightarrow> case \<mu> t of
+        None \<Rightarrow> 0
+      | Some p \<Rightarrow> p
+  )"
+  unfolding K'_def K1_def
+  apply (clarsimp split: option.split, safe)
+                 apply (drule map_of_SomeD, drule map_of_NoneD, force)+
+         apply (fastforce dest: unique map_of_SomeD simp: pmf_of_alist_aux)+
+  done
 
 end
 
@@ -748,19 +787,23 @@ locale Concrete_HMM = Concrete_HMM_defs +
         "\<forall> (_, \<mu>) \<in> set \<O>. \<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
         "\<forall> (_, \<mu>) \<in> set \<O>. distinct (map fst \<mu>)"
         "\<forall> (s, \<mu>) \<in> set \<O>. sum_list (map snd \<mu>) = 1"
+      and observations_unique:
+        "distinct (map fst \<O>)"
   assumes states_wellformed: "\<K>\<^sub>s \<noteq> []"
       and states_closed: "\<forall> (s, \<mu>) \<in> set \<K>. \<forall> (t, _) \<in> set \<mu>. t \<in> set \<K>\<^sub>s"
       and states_form_pmf:
         "\<forall> (_, \<mu>) \<in> set \<K>. \<forall> (_, p) \<in> set \<mu>. p \<ge> 0"
         "\<forall> (_, \<mu>) \<in> set \<K>. distinct (map fst \<mu>)"
         "\<forall> (s, \<mu>) \<in> set \<K>. sum_list (map snd \<mu>) = 1"
+      and states_unique:
+        "distinct (map fst \<K>)"
 begin
 
 interpretation O: Closed_Kernel_From \<O> \<O>\<^sub>s
   rewrites "O.K' = \<O>'"
 proof -
   show \<open>Closed_Kernel_From \<O> \<O>\<^sub>s\<close>
-    using observations_wellformed' observations_closed' observations_form_pmf'
+    using observations_wellformed' observations_closed' observations_form_pmf' observations_unique
     by unfold_locales auto
   show \<open>Closed_Kernel_From.K' \<O> \<O>\<^sub>s = \<O>'\<close>
     unfolding Closed_Kernel_From.K'_def[OF \<open>Closed_Kernel_From \<O> \<O>\<^sub>s\<close>] \<O>'_def
@@ -771,16 +814,21 @@ interpretation K: Closed_Kernel_From \<K> \<K>\<^sub>s
   rewrites "K.K' = \<K>'"
 proof -
   show \<open>Closed_Kernel_From \<K> \<K>\<^sub>s\<close>
-    using states_wellformed states_closed states_form_pmf by unfold_locales auto
+    using states_wellformed states_closed states_form_pmf states_unique by unfold_locales auto
   show \<open>Closed_Kernel_From.K' \<K> \<K>\<^sub>s = \<K>'\<close>
     unfolding Closed_Kernel_From.K'_def[OF \<open>Closed_Kernel_From \<K> \<K>\<^sub>s\<close>] \<K>'_def
     by auto
 qed
 
+lemmas O_code = O.K'_code
+lemmas K_code = K.K'_code
+lemmas K_code2[code] = K.K1_def
+lemmas O_code2[code] = O.K1_def
+
 sublocale HMM_interp: HMM3 \<O>' "set \<K>\<^sub>s" \<K>\<^sub>s \<K>' "set \<O>\<^sub>s"
   using O.Closed_Kernel_axioms K.Closed_Kernel_axioms
   by (intro_locales, intro HMM3_axioms.intro HOL.refl)
-
+thm O.K'_code
 end (* Concrete HMM *)
 
 subsection \<open>The Ice Cream Example\<close>
@@ -789,7 +837,7 @@ definition
   "states = [''start'', ''hot'', ''cold'', ''end'']"
 
 definition observations :: "int list" where
-  "observations = [1, 2, 3]"
+  "observations = [0, 1, 2, 3]"
 
 definition
   "kernel =
@@ -803,24 +851,74 @@ definition
 definition
   "emissions =
     [
-      (''start'', [(1, 1::real)]),
       (''hot'',   [(1, 0.2), (2, 0.4), (3, 0.4)]),
-      (''cold'',  [(1, 0.5), (2, 0.4), (3, 0.1)]),
-      (''end'',   [(1, 1::real)])
+      (''cold'',  [(1, 0.5), (2, 0.4), (3, 0.1)])
     ]
   "
 
 global_interpretation Concrete_HMM kernel emissions observations states
-  defines viterbi = HMM_interp.viterbi
+  defines viterbi' = HMM_interp.viterbi_ix\<^sub>m'
+  and viterbi = HMM_interp.viterbi
+  and viterbi_final = HMM_interp.viterbi_final
   by (standard; eval)
 
+thm O_code K_code
+
+(*
 lemmas [code] = Concrete_HMM_defs.\<O>'_def Concrete_HMM_defs.\<K>'_def
+*)
+
+(*
+lemmas [code_post] = O_code K_code
 
 lemmas [code] = HMM3_defs.viterbi_ix\<^sub>m'.simps
+*)
+
+thm HMM_interp.viterbi_ix\<^sub>m'.simps
+
+thm HMM_interp.viterbi_ix\<^sub>m'.simps[unfolded O_code K_code]
+lemmas [code] = HMM_interp.viterbi_ix\<^sub>m'.simps[unfolded O_code O_code2 K_code K_code2]
+
+lemmas [code] = HMM_interp.viterbi.simps[unfolded O_code O_code2 K_code K_code2]
+
+thm K_code2
+
+thy_deps
+
 
 instance prod :: (linorder, linorder) linorder
   sorry
 
-value "viterbi ''start'' ''end'' [1, 2]"
+term embed_pmf
+
+code_thms HMM3_defs.viterbi_ix\<^sub>m'
+
+code_thms viterbi
+
+value "viterbi ''start'' ''end'' [1, 3, 1, 3, 1]"
+
+value "viterbi ''start'' ''end'' [1, 2, 3, 1]"
+value "viterbi ''start'' ''end'' [1, 1, 1, 1]"
+value "viterbi ''start'' ''end'' [1, 1, 1]"
+
+thm HMM3.viterbi_final_def HMM_interp.viterbi_final_def
+
+(* lemmas [code] = HMM_interp.viterbi_final_def *)
+
+value "HMM_interp.viterbi_final ''start'' [1, 1, 1, 1, 1, 1, 1]"
+
+value "HMM_interp.viterbi_final ''start'' [1, 1, 1, 1]"
+
+value "HMM_interp.viterbi_final ''start'' [1, 1, 1]"
+
+value "HMM_interp.viterbi_final ''start'' [3, 1, 3]"
+
+value "HMM_interp.viterbi_final ''start'' [3, 1, 1]"
+
+value "HMM_interp.viterbi_final ''start'' [3, 1, 1, 3]"
+
+value "HMM_interp.viterbi_final ''start'' [1, 1]"
+
+value "HMM_interp.viterbi_final ''start'' [1]"
 
 end (* Theory *)
