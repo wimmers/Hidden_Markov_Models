@@ -196,7 +196,7 @@ lemma K'_code [code_post]:
 
 end
 
-subsection \<open>Execution for Concrete HMMs\<close>
+subsection \<open>Execution of Concrete HMMs\<close>
 
 locale Concrete_HMM_defs =
   fixes \<K> :: "('s \<times> ('s \<times> real) list) list"

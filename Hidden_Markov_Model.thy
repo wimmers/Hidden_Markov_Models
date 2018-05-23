@@ -249,7 +249,7 @@ theorem likelihood_forward:
   unfolding likelihood_backward forward_backward[symmetric, OF \<open>s \<in> \<S>\<close>] ..
 
 
-subsection \<open>Definition of Maximum Probability\<close>
+subsection \<open>Definition of Maximum Probabilities\<close>
 
 abbreviation (input) "V os as \<omega> \<equiv> (\<exists> \<omega>'. \<omega> = zip as os @- \<omega>')"
 
@@ -269,7 +269,7 @@ definition
     length as = length os \<and> set as \<subseteq> \<S>"
 
 
-subsection \<open>Iteration Rule For Maximum Probability\<close>
+subsection \<open>Iteration Rule For Maximum Probabilities\<close>
 
 lemma emeasure_T_state_Nil:
   "T (s, o\<^sub>0) {\<omega> \<in> space S. V [] as \<omega>} = 1"
@@ -381,7 +381,7 @@ lemmas max_prob_Cons = max_prob_Cons'[OF length_replicate]
 
 
 
-subsection \<open>Computation of Maximum Probability\<close>
+subsection \<open>Computation of Maximum Probabilities\<close>
 
 lemma T_init_V_eq:
   "T (s, o) {\<omega> \<in> space S. V os as \<omega>} = T (s, o') {\<omega> \<in> space S. V os as \<omega>}"
