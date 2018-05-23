@@ -25,44 +25,48 @@ definition
   "emissions =
     [
       (''hot'',   [(1, 0.2), (2, 0.4), (3, 0.4)]),
-      (''cold'',  [(1, 0.5), (2, 0.4), (3, 0.1)])
+      (''cold'',  [(1, 0.5), (2, 0.4), (3, 0.1)]),
+      (''end'',   [(0, 1)])
     ]
   "
 
 global_interpretation Concrete_HMM kernel emissions observations states
-  defines viterbi_inner = HMM_interp.viterbi_ix\<^sub>m'
-  and viterbi = HMM_interp.viterbi
+  defines
+      viterbi_rec   = HMM_interp.viterbi_ix\<^sub>m'
+  and viterbi       = HMM_interp.viterbi
   and viterbi_final = HMM_interp.viterbi_final
+  and forward_rec   = HMM_interp.forward_ix\<^sub>m'
+  and forward       = HMM_interp.forward
   by (standard; eval)
 
 lemmas [code] = HMM_interp.viterbi_ix\<^sub>m'.simps[unfolded O_code K_code]
 
-code_thms viterbi_final
+lemmas [code] = HMM_interp.forward_ix\<^sub>m'.simps[unfolded O_code K_code]
 
-value "viterbi ''start'' ''end'' [1, 3, 1, 3, 1]"
+value "forward ''start'' ''end'' [1, 1, 1, 0]"
 
-value "viterbi ''start'' ''end'' [1, 2, 3, 1]"
+value "forward ''start'' ''end'' [3, 3, 3, 0]"
 
-value "viterbi ''start'' ''end'' [1, 1, 1, 1]"
+value "forward ''start'' ''end'' [3, 1, 3, 0]"
 
-value "viterbi ''start'' ''end'' [1, 1, 1]"
+value "forward ''start'' ''end'' [3, 1, 3, 1, 0]"
 
-value "viterbi_final ''start'' [1, 1, 1, 1, 1, 1, 1]"
+value "viterbi ''start'' ''end'' [1, 1, 1, 0]"
 
-value "viterbi_final ''start'' [1, 1, 1, 1, 1, 1, 1, 3, 3, 3]"
+value "viterbi ''start'' ''end'' [3, 3, 3, 0]"
 
-value "viterbi_final ''start'' [1, 1, 1, 1]"
+value "viterbi ''start'' ''end'' [3, 1, 3, 0]"
 
-value "viterbi_final ''start'' [1, 1, 1]"
+value "viterbi ''start'' ''end'' [3, 1, 3, 1, 0]"
 
-value "viterbi_final ''start'' [3, 1, 3]"
+text \<open>
+  If we enforce the last observation to correspond to @{term \<open>''end''\<close>},
+  then @{term viterbi} and @{term viterbi_final} yield the same result.
+\<close>
+value "viterbi_final ''start'' [3, 1, 3, 1, 0]"
 
-value "viterbi_final ''start'' [3, 1, 1]"
+value "viterbi_final ''start'' [1, 1, 1, 1, 1, 1, 1, 0]"
 
-value "viterbi_final ''start'' [3, 1, 1, 3]"
-
-value "viterbi_final ''start'' [1, 1]"
-
-value "viterbi_final ''start'' [1]"
+value "viterbi_final ''start'' [1, 1, 1, 1, 1, 1, 1, 1]"
 
 end
