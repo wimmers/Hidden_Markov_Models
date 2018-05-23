@@ -2,9 +2,6 @@ theory Hidden_Markov_Model
   imports
     Markov_Models.Discrete_Time_Markov_Chain Auxiliary
     "HOL-Library.IArray"
-    "../Dynamic_Programming_Hg/state_monad/State_Main"
-    "../Dynamic_Programming_Hg/util/Ground_Function"
-    Simple_List_Memory
 begin
 
 section \<open>Hidden Markov Models\<close>

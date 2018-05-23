@@ -1,12 +1,15 @@
 session HMM_library = "Markov_Models" +
   options [ document = false ]
   theories
-    "Auxiliary"
+    Auxiliary
 
 session Hidden_Markov_Models = "HMM_library" +
-  options [ document = pdf, document_output = "generated", quick_and_dirty ]
+  options [ document = pdf, document_output = "generated" ]
+  sessions
+    "HOL-Library"
+    "Monad_Memo_DP"
   theories
-    "Hidden_Markov_Model"
+    HMM_Example
   document_files
     "root.tex"
     "root.bib"

@@ -1,5 +1,8 @@
 theory HMM_Implementation
-  imports Hidden_Markov_Model
+  imports
+    Hidden_Markov_Model
+    "Monad_Memo_DP.State_Main"
+    Simple_List_Memory
 begin
 
 section \<open>Implementation\<close>
