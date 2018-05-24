@@ -4,6 +4,16 @@ theory Simple_List_Memory
     "HOL-Library.AList"
 begin
 
+text \<open>
+  Implements memories as mappings, which in turn are implemented as association lists.
+  Better performance could be achieved by implementing the mappings as red-black trees
+  (see @{locale dp_consistency_rbt}).
+  However, they require the key type to be linearly ordered.
+  Unfortunately, \<open>HOL-Analysis\<close> fixes the product order to the element-wise order
+  and thus we cannot restore a linear order, and the red-black tree implementation
+  (from \<open>HOL-Library\<close>) cannot be used.
+\<close>
+
 lemma mem_correct_list_mapping:
   "mem_correct
     (\<lambda> k. do {(m::('k \<times> 'v) list) \<leftarrow> State_Monad.get; State_Monad.return (map_of m k)})

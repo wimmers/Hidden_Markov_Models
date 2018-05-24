@@ -1,11 +1,11 @@
+section \<open>Implementation\<close>
+
 theory HMM_Implementation
   imports
     Hidden_Markov_Model
     "Monad_Memo_DP.State_Main"
     Simple_List_Memory
 begin
-
-section \<open>Implementation\<close>
 
 subsection \<open>The Forward Algorithm\<close>
 
@@ -55,6 +55,10 @@ end (* Fixed IArray *)
 definition
   "forward_ix os = forward_ix_rec (IArray os)"
 
+definition
+  "likelihood_compute s os \<equiv>
+    if s \<in> set state_list then Some (\<Sum>t \<leftarrow> state_list. forward s t os) else None"
+
 end (* HMM3 Defs *)
 
 text \<open>Correctness of the alternative definition.\<close>
@@ -80,12 +84,21 @@ next
        )
 qed
 
+text \<open>
+  Instructs the code generator to use this equation instead to execute \<open>forward\<close>.
+  Uses the memoized version of \<open>forward_ix\<close>.
+\<close>
 lemma (in HMM4) forward_code [code]:
   "forward s t os = fst (run_state (forward_ix\<^sub>m' (IArray os) s t 0) [])"
   by (simp only:
       forward_ix_def forward_ix\<^sub>m.memoized_correct forward_ix_forward[symmetric]
       states_distinct
      )
+
+theorem (in HMM4) likelihood_compute:
+  "likelihood_compute s os = Some x \<longleftrightarrow> s \<in> \<S> \<and> x = likelihood s os"
+  unfolding likelihood_compute_def
+  by (auto simp: states_distinct state_list_\<S> sum_list_distinct_conv_sum_set likelihood_forward)
 
 
 subsection \<open>The Viterbi Algorithm\<close>
@@ -197,13 +210,14 @@ lemma pmf_of_alist_support_aux_2:
       apply (rule sum.reindex_cong[where l = "\<lambda> i. fst (\<mu> ! i)"])
         apply (auto split: option.split)
       subgoal
-        by (smt atLeastLessThan_iff distinct_conv_nth inj_onI length_map nth_map prems(3))
+        using prems(3) by (intro inj_onI, auto simp: distinct_conv_nth)
       subgoal
-        by (metis (lifting) atLeast0LessThan fst_conv in_set_conv_nth lessThan_iff rev_image_eqI)
+        by (auto simp: in_set_conv_nth rev_image_eqI)
       subgoal
         by (simp add: map_of_eq_None_iff)
       subgoal
-        by (metis fst_conv map_of_eq_Some_iff nth_mem option.inject prems(3) prod_eqI snd_conv)
+        using map_of_eq_Some_iff[OF prems(3)]
+        by (metis fst_conv nth_mem option.inject prod_eqI snd_conv)
       done
     with prems(2) show ?thesis
       by (smt pmf_of_alist_support_aux_1[OF assms(1)] atLeastLessThan_iff ennreal_1
@@ -226,6 +240,7 @@ lemma pmf_of_alist_support:
   apply (force split: option.split_asm simp: image_iff dest: map_of_SomeD)+
   done
 
+text \<open>Defining a Markov kernel from an association list.\<close>
 locale Closed_Kernel_From =
   fixes K :: "('s \<times> ('t \<times> real) list) list"
     and S :: "'t list"
@@ -251,10 +266,6 @@ sublocale Closed_Kernel K' "set S"
 definition [code]:
   "K1 = map_of (map (\<lambda> (s, \<mu>). (s, map_of \<mu>)) K)"
 
-lemma map_of_NoneD:
-  "x \<notin> fst ` set M" if "map_of M x = None"
-  using that by (auto dest: weak_map_of_SomeI)
-
 lemma pmf_of_alist_aux:
   assumes "(s, \<mu>) \<in> set K"
   shows
@@ -268,6 +279,10 @@ lemma pmf_of_alist_aux:
 lemma unique: "\<mu> = \<mu>'" if "(s, \<mu>) \<in> set K" "(s, \<mu>') \<in> set K"
   using that is_unique
   by (smt Pair_inject distinct_conv_nth fst_conv in_set_conv_nth length_map nth_map)
+
+lemma (in -) map_of_NoneD:
+  "x \<notin> fst ` set M" if "map_of M x = None"
+  using that by (auto dest: weak_map_of_SomeI)
 
 lemma K'_code [code_post]:
   "pmf (K' s) t = (case K1 s of

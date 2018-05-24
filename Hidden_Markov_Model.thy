@@ -8,12 +8,18 @@ begin
 
 subsection \<open>Definitions\<close>
 
+text \<open>Definition of Markov Kernels that are closed w.r.t. to a set of states.\<close>
 locale Closed_Kernel =
   fixes K :: "'s \<Rightarrow> 't pmf" and S :: "'t set"
   assumes finite: "finite S"
       and wellformed: "S \<noteq> {}"
       and closed: "\<forall> s. K s \<subseteq> S"
 
+text \<open>
+  An HMM is parameterized by a Markov kernel for the transition probabilites between internal states,
+  a Markov kernel for the output probabilities of observations,
+  and a fixed set of observations.
+\<close>
 locale HMM_defs =
   fixes \<K> :: "'s \<Rightarrow> 's pmf" and \<O> :: "'s \<Rightarrow> 't pmf" and \<O>\<^sub>s :: "'t set"
 
@@ -28,6 +34,7 @@ lemma observations_finite: "finite \<O>\<^sub>s"
 
 end
 
+text \<open>Fixed set of internal states.\<close>
 locale HMM2_defs = HMM_defs \<K> \<O> for \<K> :: "'s \<Rightarrow> 's pmf" and \<O> :: "'s \<Rightarrow> 't pmf" +
   fixes \<S> :: "'s set"
 
@@ -41,6 +48,10 @@ lemma states_finite: "finite \<S>"
 
 end
 
+text \<open>
+  The set of internal states is now given as a list to iterate over.
+  This is needed for the computations on HMMs.
+\<close>
 locale HMM3_defs = HMM2_defs \<O>\<^sub>s \<K> for \<O>\<^sub>s :: "'t set" and \<K> :: "'s \<Rightarrow> 's pmf" +
   fixes state_list :: "'s list"
 
@@ -52,6 +63,7 @@ begin
 
 no_notation (ASCII) comp  (infixl "o" 55)
 
+text \<open>The ``default'' observation.\<close>
 definition
   "obs \<equiv> SOME x. x \<in> \<O>\<^sub>s"
 
@@ -59,13 +71,24 @@ lemma (in HMM) obs:
   "obs \<in> \<O>\<^sub>s"
   unfolding obs_def using observations_wellformed by (auto intro: someI_ex)
 
+text \<open>
+  The HMM is encoded as a Markov chain over pairs of states and observations.
+  This is the Markov chain's defining Markov kernel.
+\<close>
 definition
   "K \<equiv> \<lambda> (s\<^sub>1, o\<^sub>1 :: 't). bind_pmf (\<K> s\<^sub>1) (\<lambda> s\<^sub>2. map_pmf (\<lambda> o\<^sub>2. (s\<^sub>2, o\<^sub>2)) (\<O> s\<^sub>2))"
 
 sublocale MC_syntax K .
 
+text \<open>
+  Uniform distribution of the pairs \<open>(s, o)\<close> for a fixed state \<open>s\<close>.
+\<close>
 definition "I (s :: 's) = map_pmf (\<lambda> x. (s, x)) (pmf_of_set \<O>\<^sub>s)"
 
+text \<open>
+  The likelihood of an observation sequence given a starting state \<open>s\<close> is defined in terms of
+  the trace space of the Markov kernel given the uniform distribution of pairs for \<open>s\<close>.
+\<close>
 definition
   "likelihood s os = T' (I s) {\<omega> \<in> space S. \<exists> o\<^sub>0 xs \<omega>'. \<omega> = (s, o\<^sub>0) ## xs @- \<omega>' \<and> map snd xs = os}"
 
@@ -87,13 +110,10 @@ lemma emeasure_T_observation_Nil:
 
 lemma L_Cons:
   "L (o # os) \<omega> \<longleftrightarrow> snd (shd \<omega>) = o \<and> L os (stl \<omega>)"
-  apply (cases \<omega>; cases "shd \<omega>")
-  apply auto
+  apply (cases \<omega>; cases "shd \<omega>"; safe; clarsimp)
    apply force
   subgoal for x xs \<omega>'
-    apply (rule exI[where x = "(x, o) # xs"])
-    apply force
-    done
+    by (force intro: exI[where x = "(x, o) # xs"])
   done
 
 lemma L_measurable[measurable]:
@@ -125,6 +145,10 @@ lemma T_init_observation_eq:
   apply (simp add: K_def)
   done
 
+text \<open>
+  Shows that it is equivalent to define likelihood in terms of the trace space starting at a single
+  pair of an internal state \<open>s\<close> and the default observation @{term obs}.
+\<close>
 lemma (in HMM) likelihood_init:
   "likelihood s os = T (s, obs) {\<omega> \<in> space S. L os \<omega>}"
 proof -
@@ -159,12 +183,12 @@ proof -
       by (rule nn_integral_measure_pmf)
     also have "\<dots> =
       \<integral>\<^sup>+ o\<^sub>2. (if o\<^sub>2 = o\<^sub>1
-              then ennreal (pmf (\<O> s') o\<^sub>1) *
-                   T (s', o\<^sub>1) {\<omega> \<in> space S. \<exists>xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os}
+              then ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. L os \<omega>}
               else 0)
        \<partial>count_space UNIV"
       apply (rule nn_integral_cong_AE
-          [where v = "\<lambda> o\<^sub>2. if o\<^sub>2 = o\<^sub>1 then ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. \<exists> xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os} else 0"]
+          [where v = "\<lambda> o\<^sub>2. if o\<^sub>2 = o\<^sub>1
+            then ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. L os \<omega>} else 0"]
           )
        apply (rule AE_I2)
        apply (split if_split, safe)
@@ -176,7 +200,7 @@ proof -
         by (subst arg_cong2[where f = emeasure and d = "{}", OF HOL.refl]) auto
       done
     also have "\<dots> = \<integral>\<^sup>+o\<^sub>2\<in>{o\<^sub>1}.
-       (ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. \<exists>xs \<omega>'. \<omega> = xs @- \<omega>' \<and> map snd xs = os})
+       (ennreal (pmf (\<O> s') o\<^sub>1) * T (s', o\<^sub>1) {\<omega> \<in> space S. L os \<omega>})
       \<partial>count_space UNIV"
       by (rule nn_integral_cong_AE) auto
     also have "\<dots> = ?R"
@@ -470,8 +494,8 @@ next
   then show ?case
     apply (simp add: state_list_\<S>)
     apply (rule Max_eq_image_if)
-       apply (intro finite_imageI states_finite)
-      apply (intro finite_imageI states_finite)
+       apply (intro finite_imageI states_finite; fail)
+      apply (intro finite_imageI states_finite; fail)
     subgoal
       apply clarsimp
       subgoal for x

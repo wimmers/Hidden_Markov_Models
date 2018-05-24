@@ -1,8 +1,8 @@
+section \<open>Example\<close>
+
 theory HMM_Example
   imports HMM_Implementation
 begin
-
-section \<open>Example\<close>
 
 text \<open>The ice cream example from Jurafsky and Martin \cite{Jurafsky}.\<close>
 
@@ -37,11 +37,20 @@ global_interpretation Concrete_HMM kernel emissions observations states
   and viterbi_final = HMM_interp.viterbi_final
   and forward_rec   = HMM_interp.forward_ix\<^sub>m'
   and forward       = HMM_interp.forward
+  and likelihood    = HMM_interp.likelihood_compute
   by (standard; eval)
 
 lemmas [code] = HMM_interp.viterbi_ix\<^sub>m'.simps[unfolded O_code K_code]
 
 lemmas [code] = HMM_interp.forward_ix\<^sub>m'.simps[unfolded O_code K_code]
+
+value "likelihood ''start'' [1, 1, 1]"
+
+text \<open>
+  If we enforce the last observation to correspond to @{term \<open>''end''\<close>},
+  then @{term forward} and @{term likelihood} yield the same result.
+\<close>
+value "likelihood ''start'' [1, 1, 1, 0]"
 
 value "forward ''start'' ''end'' [1, 1, 1, 0]"
 

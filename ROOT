@@ -5,6 +5,7 @@ session Hidden_Markov_Models = "Markov_Models" +
     "Monad_Memo_DP"
   theories [ document = false ]
     Auxiliary
+    Simple_List_Memory
   theories
     HMM_Example
   document_files
