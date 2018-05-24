@@ -414,7 +414,6 @@ lemma T_init_V_eq:
   apply (simp add: K_def)
   done
 
-(* TODO: Duplication with likelihood_init *)
 lemma T'_I_T:
   "T' (I s) {\<omega> \<in> space S. \<exists>o \<omega>'. \<omega> = (s, o) ## zip as os @- \<omega>'} = T (s,o) {\<omega> \<in> space S. V os as \<omega>}"
 proof -
